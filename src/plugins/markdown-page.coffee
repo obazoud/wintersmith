@@ -6,41 +6,44 @@ path = require 'path'
 url = require 'url'
 fs = require 'fs'
 Page = require './page'
+yaml = require 'yaml'
+util = require 'util'
 
 is_relative = (uri) ->
   ### returns true if *uri* is relative; otherwise false ###
   (url.parse(uri).protocol == undefined)
 
-parseMetadata = (metadata, callback) ->
-  ### takes *metadata* in the format:
-        key: value
-        foo: bar
-      returns parsed object ###
-
-  rv = {}
+parseMetadata = (header, filename, callback) ->
+  # Parse header as yaml document
   try
-    lines = metadata.split '\n'
-
-    for line in lines
-      pos = line.indexOf ':'
-      key = line.slice(0, pos).toLowerCase()
-      value = line.slice(pos + 1).trim()
-      rv[key] = value
-
-    callback null, rv
-
+    callback() if header
+    meta = yaml.eval(header)
+    callback null, yaml.eval(header)
   catch error
-    callback error
+    console.log "#{filename} header parse error: #{error}"
+    callback()
 
-extractMetadata = (content, callback) ->
-  # split metadata and markdown content
-  split_idx = content.indexOf '\n\n' # should probably make this a bit more robust
+extractMetadata = (content, filename, callback) ->
+  header = null
+  body = content
+  match = /^([\-]+)\s*/.exec(content)
+  if match
+    separator = match[0]
+    a = separator.length
+    b = content.indexOf separator
+    c = content.indexOf("\n#{separator}", b)
+    d = c + separator.length
+
+    header = content.substring(a,c)
+    header = "#{separator}" + header.replace(/^/gm, '  ') + "\n"
+    body = content.substring(d)
+  header or= {}
 
   async.parallel
     metadata: (callback) ->
-      parseMetadata content.slice(0, split_idx), callback
+      parseMetadata header, filename, callback
     markdown: (callback) ->
-      callback null, content.slice(split_idx + 2)
+      callback null, body
   , callback
 
 parseMarkdownSync = (content, baseUrl) ->
@@ -80,7 +83,7 @@ MarkdownPage.fromFile = (filename, base, callback) ->
     (callback) ->
       fs.readFile path.join(base, filename), callback
     (buffer, callback) ->
-      extractMetadata buffer.toString(), callback
+      extractMetadata buffer.toString(), filename, callback
     (result, callback) =>
       {markdown, metadata} = result
       page = new this filename, markdown, metadata
