@@ -4,6 +4,9 @@ async = require 'async'
 {ContentTree, ContentPlugin, registerContentPlugin} = require './content'
 {TemplatePlugin, loadTemplates, registerTemplatePlugin} = require './templates'
 renderer = require './renderer'
+_ = require 'underscore'
+fs = require 'fs'
+path = require 'path'
 
 defaultPlugins =
   Page: require('./plugins/markdown-page')
@@ -68,6 +71,29 @@ module.exports = (options, callback) ->
         templates: async.apply loadTemplates, options.templates
       , callback
     (result, callback) ->
+      tags = _.chain(result.contents.articles._.directories).map((item) ->
+        item.index
+      ).compact().filter((article) ->
+        article.metadata.ignored isnt true
+      ).map((article) ->
+        article.metadata.tags
+      ).flatten().compact().uniq().value()
+
+      for tag in tags
+        stream = fs.createWriteStream(path.join(options.contents, "tag", tag + ".md"), encoding: "utf8")
+        stream.on 'error', (err) ->
+          console.log err
+        stream.write("---\ntemplate: tag.jade\ncurrentTag: " + tag + "\n---\n")
+        stream.end()
+
+      years = _.chain(result.contents.articles._.directories).map((item) ->
+        item.index
+      ).compact().filter((article) ->
+        article.metadata.ignored isnt true
+      ).map((article) ->
+        article.date.getFullYear()
+      ).flatten().compact().uniq().value()
+
       renderer result.contents, result.templates, options.output, options.locals, callback
   ], callback
 
