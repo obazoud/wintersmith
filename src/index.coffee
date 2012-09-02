@@ -86,13 +86,20 @@ module.exports = (options, callback) ->
         stream.write("---\ntemplate: tag.jade\ncurrentTag: " + tag + "\n---\n")
         stream.end()
 
-      years = _.chain(result.contents.articles._.directories).map((item) ->
+      archives = _.chain(result.contents.articles._.directories).map((item) ->
         item.index
       ).compact().filter((article) ->
         article.metadata.ignored isnt true
       ).map((article) ->
         article.date.getFullYear()
       ).flatten().compact().uniq().value()
+
+      for archive in archives
+        stream = fs.createWriteStream(path.join(options.contents, "archive", archive + ".md"), encoding: "utf8")
+        stream.on 'error', (err) ->
+          console.log err
+        stream.write("---\ntemplate: year.jade\ncurrentYear: " + archive + "\n---\n")
+        stream.end()
 
       renderer result.contents, result.templates, options.output, options.locals, callback
   ], callback
