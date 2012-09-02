@@ -86,6 +86,21 @@ module.exports = (options, callback) ->
         stream.write("---\ntemplate: tag.jade\ncurrentTag: " + tag + "\n---\n")
         stream.end()
 
+      categories = _.chain(result.contents.articles._.directories).map((item) ->
+        item.index
+      ).compact().filter((article) ->
+        article.metadata.ignored isnt true
+      ).map((article) ->
+        article.metadata.categories
+      ).flatten().compact().uniq().value()
+
+      for category in categories
+        stream = fs.createWriteStream(path.join(options.contents, "category", category + ".md"), encoding: "utf8")
+        stream.on 'error', (err) ->
+          console.log err
+        stream.write("---\ntemplate: category.jade\ncurrentCategory: " + category + "\n---\n")
+        stream.end()
+
       archives = _.chain(result.contents.articles._.directories).map((item) ->
         item.index
       ).compact().filter((article) ->
