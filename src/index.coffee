@@ -116,6 +116,22 @@ module.exports = (options, callback) ->
         stream.write("---\ntemplate: year.jade\ncurrentYear: " + archive + "\n---\n")
         stream.end()
 
+      aliases = {}
+      _.chain(result.contents.articles._.directories).map((item) ->
+        item.index
+      ).compact().filter((article) ->
+        article.metadata.ignored isnt true
+      ).flatten().compact().each((article) ->
+        _.each(article.metadata.aliases, (alias) ->
+          aliases[alias.toLowerCase()] = article.url.toLowerCase()
+        ) if article.metadata.aliases
+      )
+      stream = fs.createWriteStream(path.join(options.output, "aliases.json"), encoding: "utf8")
+      stream.on 'error', (err) ->
+        console.log err
+      stream.write JSON.stringify(aliases)
+      stream.end()
+
       renderer result.contents, result.templates, options.output, options.locals, callback
   ], callback
 
